@@ -8,8 +8,11 @@ use krilla::tagging::{
 };
 use typst_library::foundations::{Content, StyleChain};
 use typst_library::introspection::Location;
-use typst_library::model::{HeadingElem, OutlineElem, OutlineEntry};
-use typst_library::pdf::{ArtifactElem, ArtifactKind, PdfStructElem, PdfTagElem};
+use typst_library::model::{
+    CiteElem, FigureCaption, FigureElem, HeadingElem, LinkElem, OutlineElem,
+    OutlineEntry, RefElem,
+};
+use typst_library::pdf::{ArtifactElem, ArtifactKind, PdfTagElem, PdfTagKind};
 
 use crate::convert::GlobalContext;
 
@@ -72,6 +75,14 @@ impl Tags {
         }
     }
 
+    pub(crate) fn prepend(&mut self, node: TagNode) {
+        if let Some((_, _, nodes)) = self.stack.last_mut() {
+            nodes.insert(0, node);
+        } else {
+            self.tree.insert(0, node);
+        }
+    }
+
     pub(crate) fn build_tree(&mut self) -> TagTree {
         let mut tree = TagTree::new();
         let nodes = std::mem::take(&mut self.tree);
@@ -99,60 +110,17 @@ impl Tags {
     }
 
     /// Returns the current parent's list of children and whether it is the tree root.
-    fn parent_nodes(&mut self) -> (bool, &mut Vec<TagNode>) {
-        if let Some((_, _, parent_nodes)) = self.stack.last_mut() {
-            (false, parent_nodes)
+    pub(crate) fn parent_nodes(&mut self) -> (Option<&mut Tag>, &mut Vec<TagNode>) {
+        if let Some((_, tag, parent_nodes)) = self.stack.last_mut() {
+            (Some(tag), parent_nodes)
         } else {
-            (true, &mut self.tree)
+            (None, &mut self.tree)
         }
     }
 
-    fn context_supports(&self, tag: &Tag) -> bool {
-        let Some((_, parent, _)) = self.stack.last() else { return true };
-
-        use Tag::*;
-
-        match parent {
-            Part => true,
-            Article => !matches!(tag, Article),
-            Section => true,
-            BlockQuote => todo!(),
-            Caption => todo!(),
-            TOC => matches!(tag, TOC | TOCI),
-            // TODO: NonStruct is allowed to but (currently?) not supported by krilla
-            TOCI => matches!(tag, TOC | Lbl | Reference | P),
-            Index => todo!(),
-            P => todo!(),
-            H1(_) => todo!(),
-            H2(_) => todo!(),
-            H3(_) => todo!(),
-            H4(_) => todo!(),
-            H5(_) => todo!(),
-            H6(_) => todo!(),
-            L(_list_numbering) => todo!(),
-            LI => todo!(),
-            Lbl => todo!(),
-            LBody => todo!(),
-            Table => todo!(),
-            TR => todo!(),
-            TH(_table_header_scope) => todo!(),
-            TD => todo!(),
-            THead => todo!(),
-            TBody => todo!(),
-            TFoot => todo!(),
-            InlineQuote => todo!(),
-            Note => todo!(),
-            Reference => todo!(),
-            BibEntry => todo!(),
-            Code => todo!(),
-            Link => todo!(),
-            Annot => todo!(),
-            Figure(_) => todo!(),
-            Formula(_) => todo!(),
-            Datetime => todo!(),
-            Terms => todo!(),
-            Title => todo!(),
-        }
+    fn context_supports(&self, _tag: &Tag) -> bool {
+        // TODO: generate using: https://pdfa.org/resource/iso-ts-32005-hierarchical-inclusion-rules/
+        true
     }
 }
 
@@ -212,7 +180,7 @@ pub(crate) fn handle_start(
     let tag = if let Some(pdf_tag) = elem.to_packed::<PdfTagElem>() {
         let kind = pdf_tag.kind(StyleChain::default());
         match kind {
-            PdfStructElem::Part => Tag::Part,
+            PdfTagKind::Part => Tag::Part,
             _ => todo!(),
         }
     } else if let Some(heading) = elem.to_packed::<HeadingElem>() {
@@ -229,8 +197,19 @@ pub(crate) fn handle_start(
         }
     } else if let Some(_) = elem.to_packed::<OutlineElem>() {
         Tag::TOC
-    } else if let Some(_outline_entry) = elem.to_packed::<OutlineEntry>() {
+    } else if let Some(_) = elem.to_packed::<OutlineEntry>() {
         Tag::TOCI
+    } else if let Some(_) = elem.to_packed::<FigureElem>() {
+        let alt = None; // TODO
+        Tag::Figure(alt)
+    } else if let Some(_) = elem.to_packed::<FigureCaption>() {
+        Tag::Caption
+    } else if let Some(_) = elem.to_packed::<LinkElem>() {
+        Tag::Link
+    } else if let Some(_) = elem.to_packed::<RefElem>() {
+        Tag::Reference
+    } else if let Some(_) = elem.to_packed::<CiteElem>() {
+        Tag::Reference
     } else {
         return;
     };

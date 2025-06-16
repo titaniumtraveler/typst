@@ -2,6 +2,7 @@ use krilla::action::{Action, LinkAction};
 use krilla::annotation::{Annotation, LinkAnnotation, Target};
 use krilla::destination::XyzDestination;
 use krilla::geom::Rect;
+use krilla::tagging::Tag;
 use typst_library::layout::{Abs, Point, Position, Size};
 use typst_library::model::Destination;
 
@@ -45,6 +46,8 @@ pub(crate) fn handle_link(
     let rect = Rect::from_ltrb(x1, y1, x2, y2).unwrap();
 
     // TODO: Support quad points.
+    // > Beginning with PDF 1.7, use of the Link structure element to enclose
+    // > multiple link annotations is deprecated.
 
     let target = match dest {
         Destination::Url(u) => {
@@ -70,7 +73,13 @@ pub(crate) fn handle_link(
     };
 
     let placeholder = gc.tags.reserve_placeholder();
-    gc.tags.push(TagNode::Placeholder(placeholder));
+    let mut node = TagNode::Placeholder(placeholder);
+    let (parent_tag, _) = gc.tags.parent_nodes();
+    if !matches!(parent_tag, Some(Tag::Link | Tag::Reference)) {
+        node = TagNode::Group(Link, )
+    }
+    // Prepend so the link annotation is the first child.
+    gc.tags.prepend();
 
     fc.push_annotation(
         placeholder,

@@ -9,11 +9,11 @@ use crate::introspection::Locatable;
 // TODO: docs
 #[elem(Locatable, Show)]
 pub struct PdfTagElem {
-    #[default(PdfStructElem::NonStruct)]
-    pub kind: PdfStructElem,
+    #[default(PdfTagKind::NonStruct)]
+    pub kind: PdfTagKind,
 
-    /// An alternate description
-    pub alt_desc: Option<EcoString>,
+    /// An alternate description.
+    pub alt: Option<EcoString>,
     /// Exact replacement for this structure element and its children.
     pub actual_text: Option<EcoString>,
     /// The expanded form of an abbreviation/acronym.
@@ -34,7 +34,7 @@ impl Show for Packed<PdfTagElem> {
 // TODO: docs
 /// PDF structure elements
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub enum PdfStructElem {
+pub enum PdfTagKind {
     // grouping elements
     /// (Part)
     Part,
@@ -146,9 +146,9 @@ pub enum PdfStructElem {
 }
 
 cast! {
-    PdfStructElem,
+    PdfTagKind,
     self => match self {
-        PdfStructElem::Part => "part".into_value(),
+        PdfTagKind::Part => "part".into_value(),
         _ => todo!(),
     },
     "part" => Self::Part,
