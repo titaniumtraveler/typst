@@ -74,12 +74,12 @@ pub(crate) fn handle_link(
 
     let placeholder = gc.tags.reserve_placeholder();
     let mut node = TagNode::Placeholder(placeholder);
-    let (parent_tag, _) = gc.tags.parent_nodes();
-    if !matches!(parent_tag, Some(Tag::Link | Tag::Reference)) {
-        node = TagNode::Group(Link, )
+    let (parent_tag, _) = gc.tags.parent();
+    if !matches!(parent_tag, Some(Tag::Link)) {
+        node = TagNode::Group(Tag::Link, vec![node]);
     }
     // Prepend so the link annotation is the first child.
-    gc.tags.prepend();
+    gc.tags.prepend(node);
 
     fc.push_annotation(
         placeholder,

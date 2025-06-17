@@ -67,20 +67,22 @@ impl Tags {
             .expect("initialized placeholder node")
     }
 
-    pub(crate) fn push(&mut self, node: TagNode) {
-        if let Some((_, _, nodes)) = self.stack.last_mut() {
-            nodes.push(node);
+    /// Returns the current parent's list of children and the structure type ([Tag]).
+    /// In case of the document root the structure type will be `None`.
+    pub(crate) fn parent(&mut self) -> (Option<&mut Tag>, &mut Vec<TagNode>) {
+        if let Some((_, tag, parent_nodes)) = self.stack.last_mut() {
+            (Some(tag), parent_nodes)
         } else {
-            self.tree.push(node);
+            (None, &mut self.tree)
         }
     }
 
+    pub(crate) fn push(&mut self, node: TagNode) {
+        self.parent().1.push(node);
+    }
+
     pub(crate) fn prepend(&mut self, node: TagNode) {
-        if let Some((_, _, nodes)) = self.stack.last_mut() {
-            nodes.insert(0, node);
-        } else {
-            self.tree.insert(0, node);
-        }
+        self.parent().1.insert(0, node);
     }
 
     pub(crate) fn build_tree(&mut self) -> TagTree {
@@ -106,15 +108,6 @@ impl Tags {
             }
             TagNode::Leaf(identifier) => Node::Leaf(identifier),
             TagNode::Placeholder(placeholder) => self.take_placeholder(placeholder),
-        }
-    }
-
-    /// Returns the current parent's list of children and whether it is the tree root.
-    pub(crate) fn parent_nodes(&mut self) -> (Option<&mut Tag>, &mut Vec<TagNode>) {
-        if let Some((_, tag, parent_nodes)) = self.stack.last_mut() {
-            (Some(tag), parent_nodes)
-        } else {
-            (None, &mut self.tree)
         }
     }
 
@@ -245,9 +238,9 @@ pub(crate) fn handle_end(gc: &mut GlobalContext, surface: &mut Surface, loc: &Lo
 
     surface.end_tagged();
 
-    let (is_root, parent_nodes) = gc.tags.parent_nodes();
+    let (parent_tag, parent_nodes) = gc.tags.parent();
     parent_nodes.push(TagNode::Group(tag, nodes));
-    if !is_root {
+    if parent_tag.is_some() {
         // TODO: somehow avoid empty marked-content sequences
         let id = surface.start_tagged(ContentTag::Other);
         parent_nodes.push(TagNode::Leaf(id));
@@ -258,8 +251,7 @@ fn start_artifact(gc: &mut GlobalContext, surface: &mut Surface, kind: ArtifactK
     let ty = artifact_type(kind);
     let id = surface.start_tagged(ContentTag::Artifact(ty));
 
-    let (_, parent_nodes) = gc.tags.parent_nodes();
-    parent_nodes.push(TagNode::Leaf(id));
+    gc.tags.push(TagNode::Leaf(id));
 }
 
 fn artifact_type(kind: ArtifactKind) -> ArtifactType {
