@@ -446,7 +446,7 @@ impl Show for Packed<OutlineEntry> {
         };
 
         let loc = self.element_location().at(span)?;
-        Ok(block.linked(Some(alt), Destination::Location(loc)))
+        Ok(block.linked(Destination::Location(loc), Some(alt)))
     }
 }
 

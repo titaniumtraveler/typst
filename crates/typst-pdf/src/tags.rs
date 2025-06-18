@@ -9,10 +9,11 @@ use krilla::tagging::{
 use typst_library::foundations::{Content, StyleChain};
 use typst_library::introspection::Location;
 use typst_library::model::{
-    CiteElem, FigureCaption, FigureElem, HeadingElem, LinkElem, OutlineElem,
+    CiteElem, FigureCaption, FigureElem, HeadingElem, LinkElem, Outlinable, OutlineElem,
     OutlineEntry, RefElem,
 };
 use typst_library::pdf::{ArtifactElem, ArtifactKind, PdfTagElem, PdfTagKind};
+use typst_library::visualize::ImageElem;
 
 use crate::convert::GlobalContext;
 
@@ -177,7 +178,7 @@ pub(crate) fn handle_start(
             _ => todo!(),
         }
     } else if let Some(heading) = elem.to_packed::<HeadingElem>() {
-        let level = heading.resolve_level(StyleChain::default());
+        let level = heading.level();
         let name = heading.body.plain_text().to_string();
         match level.get() {
             1 => Tag::H1(Some(name)),
@@ -195,6 +196,25 @@ pub(crate) fn handle_start(
     } else if let Some(_) = elem.to_packed::<FigureElem>() {
         let alt = None; // TODO
         Tag::Figure(alt)
+    } else if let Some(image) = elem.to_packed::<ImageElem>() {
+        let alt = image.alt(StyleChain::default()).map(|s| s.to_string());
+
+        end_open(gc, surface);
+        let id = surface.start_tagged(ContentTag::Other);
+        let mut node = TagNode::Leaf(id);
+
+        if let Some(Tag::Figure(alt_text)) = gc.tags.parent().0 {
+            // HACK: set alt text of outer figure tag, if the contained image
+            // has alt text specified
+            if alt_text.is_none() {
+                *alt_text = alt;
+            }
+        } else {
+            node = TagNode::Group(Tag::Figure(alt), vec![node]);
+        }
+        gc.tags.push(node);
+
+        return;
     } else if let Some(_) = elem.to_packed::<FigureCaption>() {
         Tag::Caption
     } else if let Some(_) = elem.to_packed::<LinkElem>() {
@@ -212,9 +232,7 @@ pub(crate) fn handle_start(
     }
 
     // close previous marked-content and open a nested tag.
-    if !gc.tags.stack.is_empty() {
-        surface.end_tagged();
-    }
+    end_open(gc, surface);
     let id = surface.start_tagged(krilla::tagging::ContentTag::Other);
     gc.tags.stack.push((loc, tag, vec![TagNode::Leaf(id)]));
 }

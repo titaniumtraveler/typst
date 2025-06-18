@@ -16,12 +16,12 @@ use crate::diag::{SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::foundations::{
     elem, func, scope, ty, Context, Dict, Element, Fields, IntoValue, Label,
-    NativeElement, Recipe, RecipeIndex, Repr, Selector, Str, Style, StyleChain, Styles,
-    Value,
+    NativeElement, Recipe, RecipeIndex, Repr, Selector, Show, Str, Style, StyleChain,
+    Styles, Value,
 };
-use crate::introspection::Location;
+use crate::introspection::{Locatable, Location};
 use crate::layout::{AlignElem, Alignment, Axes, Length, MoveElem, PadElem, Rel, Sides};
-use crate::model::{Destination, EmphElem, LinkElem, StrongElem};
+use crate::model::{Destination, EmphElem, StrongElem};
 use crate::pdf::{ArtifactElem, ArtifactKind};
 use crate::text::UnderlineElem;
 
@@ -504,9 +504,9 @@ impl Content {
     }
 
     /// Link the content somewhere.
-    pub fn linked(self, alt: Option<EcoString>, dest: Destination) -> Self {
-        self.styled(LinkElem::set_alt(alt))
-            .styled(LinkElem::set_current(Some(dest)))
+    pub fn linked(self, dest: Destination, alt: Option<EcoString>) -> Self {
+        let span = self.span();
+        LinkMarker::new(self, dest, alt).pack().spanned(span)
     }
 
     /// Set alignments for this content.
@@ -986,6 +986,26 @@ impl Repr for StyledElem {
 pub trait PlainText {
     /// Write this element's plain text into the given buffer.
     fn plain_text(&self, text: &mut EcoString);
+}
+
+
+// TODO: remove `FrameItem::Link` and `FrameModifiers::dest`, then handle links by looking at tags
+/// An element that associates the body of a link with the destination.
+#[elem(Show, Locatable)]
+pub struct LinkMarker {
+    /// The content.
+    #[required]
+    pub body: Content,
+    #[required]
+    pub dest: Destination,
+    #[required]
+    pub alt: Option<EcoString>,
+}
+
+impl Show for Packed<LinkMarker> {
+    fn show(&self, _: &mut Engine, _: StyleChain) -> SourceResult<Content> {
+        Ok(self.body.clone())
+    }
 }
 
 /// An error arising when trying to access a field of content.

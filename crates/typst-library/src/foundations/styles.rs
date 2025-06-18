@@ -523,6 +523,8 @@ pub struct StyleChain<'a> {
 }
 
 impl<'a> StyleChain<'a> {
+    pub const EMPTY: Self = Self { head: &[], tail: None };
+
     /// Start a new style chain with root styles.
     pub fn new(root: &'a Styles) -> Self {
         Self { head: &root.0, tail: None }
